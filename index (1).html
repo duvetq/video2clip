@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Video2Clip — AI Reel Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #080b12;
+    --surface: #0f1420;
+    --surface2: #161d2e;
+    --border: #1e2a40;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --accent3: #43e97b;
+    --text: #e8eaf0;
+    --muted: #5a6480;
+    --glow: rgba(108,99,255,0.25);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 20%, rgba(108,99,255,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(255,101,132,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 50% 50%, rgba(67,233,123,0.04) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 32px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+    letter-spacing: -0.02em;
+  }
+  .logo span { color: var(--accent); }
+  .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.3);
+    color: #9b93ff;
+    padding: 4px 12px;
+    border-radius: 99px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── HERO ── */
+  .hero {
+    text-align: center;
+    padding: 72px 0 48px;
+  }
+  .hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--accent3);
+    background: rgba(67,233,123,0.08);
+    border: 1px solid rgba(67,233,123,0.2);
+    padding: 5px 14px;
+    border-radius: 99px;
+    margin-bottom: 28px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .hero-tag::before { content: '✦'; font-size: 0.6rem; }
+
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    margin-bottom: 20px;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero-sub {
+    font-size: 1.05rem;
+    color: var(--muted);
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 auto 48px;
+    font-weight: 300;
+  }
+
+  /* ── MAIN CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(108,99,255,0.5), transparent);
+  }
+
+  .input-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .url-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .url-input::placeholder { color: var(--muted); }
+  .url-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .token-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .token-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 18px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .token-input::placeholder { color: var(--muted); }
+  .token-input:focus {
+    border-color: rgba(108,99,255,0.4);
+    box-shadow: 0 0 0 3px var(--glow);
+  }
+
+  .btn-generate {
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 28px;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-generate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 30px rgba(108,99,255,0.4);
+  }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-generate:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  /* Platform pills */
+  .platforms {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .platform-pill {
+    font-size: 0.72rem;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 99px;
+  }
+
+  /* ── PROGRESS ── */
+  #progress-section { display: none; }
+  .progress-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px 36px;
+    margin-bottom: 20px;
+  }
+  .progress-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .steps { display: flex; flex-direction: column; gap: 10px; }
+  .step {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 0.88rem;
+    transition: all 0.3s;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .step.active {
+    border-color: rgba(108,99,255,0.4);
+    color: var(--text);
+    background: rgba(108,99,255,0.08);
+  }
+  .step.done {
+    border-color: rgba(67,233,123,0.3);
+    color: var(--accent3);
+    background: rgba(67,233,123,0.05);
+  }
+  .step-icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
+
+  .progress-bar-wrap {
+    background: var(--surface2);
+    border-radius: 99px;
+    height: 4px;
+    margin-top: 20px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.5s ease;
+  }
+
+  /* ── RESULTS ── */
+  #results-section { display: none; }
+  .results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .results-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 1.3rem;
+  }
+  .results-count {
+    font-size: 0.8rem;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 99px;
+  }
+
+  .reels-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .reel-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .reel-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(108,99,255,0.4);
+  }
+  .reel-thumb {
+    width: 100%;
+    aspect-ratio: 9/16;
+    background: linear-gradient(135deg, var(--surface2), var(--border));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .reel-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(108,99,255,0.1), transparent);
+  }
+  .reel-info { padding: 12px; }
+  .reel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .reel-meta {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .reel-download {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.3);
+    color: #9b93ff;
+    text-decoration: none;
+    border-radius: 8px;
+    padding: 7px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+  .reel-download:hover {
+    background: rgba(108,99,255,0.25);
+    color: white;
+  }
+
+  .btn-new {
+    display: block;
+    width: 100%;
+    text-align: center;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 12px;
+    padding: 14px;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-new:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ── ERROR ── */
+  .error-box {
+    display: none;
+    background: rgba(255,101,132,0.08);
+    border: 1px solid rgba(255,101,132,0.3);
+    border-radius: 12px;
+    padding: 16px 20px;
+    color: #ff8fa3;
+    font-size: 0.88rem;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+
+  /* ── HOW IT WORKS ── */
+  .how { padding: 60px 0; }
+  .section-label {
+    font-size: 0.72rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+  .how h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin-bottom: 36px;
+    letter-spacing: -0.02em;
+  }
+  .steps-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 600px) { .steps-row { grid-template-columns: 1fr; } }
+  .how-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .how-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--border);
+    margin-bottom: 12px;
+    line-height: 1;
+  }
+  .how-step h3 {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-bottom: 8px;
+  }
+  .how-step p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 28px 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+
+  /* Animations */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .hero, .card { animation: fadeUp 0.6s ease both; }
+  .card { animation-delay: 0.1s; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="logo">Video<span>2</span>Clip</div>
+    <div class="badge">AI Powered</div>
+  </header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-tag">Powered by Gemini + Whisper AI</div>
+    <h1>Turn any video into<br><em>viral reels</em> instantly</h1>
+    <p class="hero-sub">Paste a YouTube or social media link. Our AI finds the best moments, cuts them into perfect 9:16 vertical clips, and adds English captions automatically.</p>
+  </section>
+
+  <!-- MAIN FORM CARD -->
+  <div class="card" id="form-section">
+    <label class="input-label">Video URL</label>
+    <div class="input-group">
+      <input
+        class="url-input"
+        id="url-input"
+        type="url"
+        placeholder="https://youtube.com/watch?v=..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <button class="btn-generate" id="generate-btn" onclick="startGeneration()">
+        Generate Reels
+      </button>
+    </div>
+
+    <label class="input-label">Access Token</label>
+    <div class="token-row">
+      <input
+        class="token-input"
+        id="token-input"
+        type="password"
+        placeholder="Enter your access token"
+      />
+    </div>
+
+    <div class="platforms">
+      <span class="platform-pill">▶ YouTube</span>
+      <span class="platform-pill">TikTok</span>
+      <span class="platform-pill">Instagram</span>
+      <span class="platform-pill">Twitter / X</span>
+      <span class="platform-pill">Facebook</span>
+      <span class="platform-pill">Vimeo</span>
+    </div>
+
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <!-- PROGRESS SECTION -->
+  <div id="progress-section">
+    <div class="progress-card">
+      <div class="progress-title">
+        <div class="spinner"></div>
+        Processing your video...
+      </div>
+      <div class="steps">
+        <div class="step" id="step-1">
+          <span class="step-icon">⬇️</span>
+          Downloading video
+        </div>
+        <div class="step" id="step-2">
+          <span class="step-icon">🧠</span>
+          AI analysing best moments
+        </div>
+        <div class="step" id="step-3">
+          <span class="step-icon">✂️</span>
+          Cutting reels
+        </div>
+        <div class="step" id="step-4">
+          <span class="step-icon">💬</span>
+          Adding English captions
+        </div>
+        <div class="step" id="step-5">
+          <span class="step-icon">✅</span>
+          Finishing up
+        </div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESULTS SECTION -->
+  <div id="results-section">
+    <div class="results-header">
+      <div class="results-title">Your Reels are Ready 🎬</div>
+      <div class="results-count" id="results-count">0 clips</div>
+    </div>
+    <div class="reels-grid" id="reels-grid"></div>
+    <button class="btn-new" onclick="resetForm()">↩ Generate another video</button>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <section class="how">
+    <div class="section-label">How it works</div>
+    <h2>Three steps to viral content</h2>
+    <div class="steps-row">
+      <div class="how-step">
+        <div class="how-num">01</div>
+        <h3>Paste your link</h3>
+        <p>Any YouTube, TikTok, Instagram, or Twitter video URL works.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-num">02</div>
+        <h3>AI finds the moments</h3>
+        <p>Gemini AI analyses the video and picks the most engaging segments.</p>
+      </div>
+      <div class="how-step">
+        <div class="how-num">03</div>
+        <h3>Download your reels</h3>
+        <p>Get perfectly cropped 9:16 vertical clips with English captions burned in.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="container">
+    Built with Gemini AI · Whisper · ffmpeg &nbsp;·&nbsp; Video2Clip © 2026
+  </div>
+</footer>
+
+<script>
+  // ── CONFIG — update this URL when your ngrok URL changes ──
+  const WEBHOOK_URL = 'https://manger-surfacing-math.ngrok-free.dev/webhook/video-to-reels';
+
+  let progressInterval = null;
+  let currentStep = 0;
+
+  const steps = [
+    { id: 'step-1', label: 'Downloading video',           duration: 8000  },
+    { id: 'step-2', label: 'AI analysing best moments',   duration: 15000 },
+    { id: 'step-3', label: 'Cutting reels',               duration: 30000 },
+    { id: 'step-4', label: 'Adding English captions',     duration: 20000 },
+    { id: 'step-5', label: 'Finishing up',                duration: 5000  },
+  ];
+
+  function showError(msg) {
+    const box = document.getElementById('error-box');
+    box.textContent = '⚠ ' + msg;
+    box.style.display = 'block';
+  }
+
+  function hideError() {
+    document.getElementById('error-box').style.display = 'none';
+  }
+
+  function advanceStep(index) {
+    steps.forEach((s, i) => {
+      const el = document.getElementById(s.id);
+      if (i < index)       el.className = 'step done';
+      else if (i === index) el.className = 'step active';
+      else                  el.className = 'step';
+    });
+    const pct = Math.min(((index + 1) / steps.length) * 90, 90);
+    document.getElementById('progress-bar').style.width = pct + '%';
+  }
+
+  function startProgressAnimation() {
+    currentStep = 0;
+    advanceStep(0);
+    let idx = 0;
+    function next() {
+      if (idx >= steps.length - 1) return;
+      idx++;
+      advanceStep(idx);
+      progressInterval = setTimeout(next, steps[idx].duration);
+    }
+    progressInterval = setTimeout(next, steps[0].duration);
+  }
+
+  function stopProgress() {
+    if (progressInterval) { clearTimeout(progressInterval); progressInterval = null; }
+    steps.forEach(s => document.getElementById(s.id).className = 'step done');
+    document.getElementById('progress-bar').style.width = '100%';
+  }
+
+  async function startGeneration() {
+    hideError();
+    const url   = document.getElementById('url-input').value.trim();
+    const token = document.getElementById('token-input').value.trim();
+
+    if (!url) { showError('Please paste a video URL'); return; }
+    if (!url.startsWith('http')) { showError('Please enter a valid URL starting with https://'); return; }
+    if (!token) { showError('Please enter your access token'); return; }
+
+    // Show progress, hide form
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('generate-btn').disabled = true;
+
+    startProgressAnimation();
+
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ url, auth_token: token })
+      });
+
+      const data = await response.json();
+      stopProgress();
+
+      if (data.status === 'error') {
+        showResults(null, data.error);
+      } else {
+        showResults(data);
+      }
+
+    } catch(err) {
+      stopProgress();
+      showResults(null, 'Could not reach the server. Make sure ngrok is running and the URL is correct.');
+    }
+  }
+
+  function showResults(data, error) {
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('form-section').style.display = 'none';
+    document.getElementById('results-section').style.display = 'block';
+
+    if (error || !data || !data.reels) {
+      document.getElementById('results-section').innerHTML = `
+        <div style="text-align:center;padding:40px 0">
+          <div style="font-size:2.5rem;margin-bottom:16px">😕</div>
+          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:8px">Something went wrong</div>
+          <div style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">${error || 'Unknown error'}</div>
+          <button class="btn-new" onclick="resetForm()" style="max-width:300px;margin:0 auto">↩ Try again</button>
+        </div>
+      `;
+      return;
+    }
+
+    const reels = data.reels || [];
+    document.getElementById('results-count').textContent = reels.length + ' clips';
+
+    const grid = document.getElementById('reels-grid');
+    grid.innerHTML = '';
+
+    if (reels.length === 0) {
+      grid.innerHTML = '<div style="color:var(--muted);font-size:0.88rem;grid-column:1/-1">No reels were generated. Try a different video.</div>';
+    } else {
+      reels.forEach((reel, i) => {
+        const start = Math.round(reel.start || 0);
+        const end   = Math.round(reel.end   || 0);
+        const dur   = end - start;
+        const outputFile = reel.output_file || '';
+        const filename   = outputFile.split('/').pop() || `reel_${i+1}.mp4`;
+
+        // Convert container path to accessible URL
+        // Files are at /data/reels/ inside container → served via n8n static or direct
+        const downloadUrl = outputFile
+          ? WEBHOOK_URL.replace('/webhook/video-to-reels', '') + '/reels/' + filename
+          : '#';
+
+        grid.innerHTML += `
+          <div class="reel-card">
+            <div class="reel-thumb">🎬</div>
+            <div class="reel-info">
+              <div class="reel-title">${reel.title || 'Clip ' + (i+1)}</div>
+              <div class="reel-meta">${formatTime(start)} – ${formatTime(end)} · ${dur}s · ${reel.category || 'clip'}</div>
+              <a class="reel-download" href="${downloadUrl}" download="${filename}" target="_blank">
+                ⬇ Download
+              </a>
+            </div>
+          </div>
+        `;
+      });
+    }
+  }
+
+  function formatTime(sec) {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m}:${String(s).padStart(2,'0')}`;
+  }
+
+  function resetForm() {
+    document.getElementById('url-input').value = '';
+    hideError();
+    document.getElementById('generate-btn').disabled = false;
+    document.getElementById('form-section').style.display = 'block';
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('results-section').style.display = 'none';
+    // Restore results section HTML in case it was replaced
+    if (!document.getElementById('results-count')) {
+      location.reload();
+    }
+  }
+
+  // Allow Enter key to submit
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('url-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startGeneration();
+    });
+  });
+</script>
+</body>
+</html>
