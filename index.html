@@ -543,7 +543,7 @@
   </div>
 
   <!-- PROGRESS SECTION -->
-  <div id="progress-section">
+  <div id="progress-section" style="display:none">
     <div class="progress-card">
       <div class="progress-title">
         <div class="spinner"></div>
@@ -578,7 +578,7 @@
   </div>
 
   <!-- RESULTS SECTION -->
-  <div id="results-section">
+  <div id="results-section" style="display:none">
     <div class="results-header">
       <div class="results-title">Your Reels are Ready 🎬</div>
       <div class="results-count" id="results-count">0 clips</div>
@@ -619,7 +619,7 @@
 
 <script>
   // ── CONFIG — update this URL when your ngrok URL changes ──
- const WEBHOOK_URL = 'https://sab.tail44bdea.ts.net/webhook/video-to-reels';
+  const WEBHOOK_URL = 'https://sab.tail44bdea.ts.net/webhook/video-to-reels';
 
   let progressInterval = null;
   let currentStep = 0;
@@ -710,7 +710,7 @@
 
     } catch(err) {
       stopProgress();
-      showResults(null, 'Could not reach the server. Make sure ngrok is running and the URL is correct.');
+      showResults(null, 'Could not reach the server. Make sure your PC is on and Tailscale is running.');
     }
   }
 
