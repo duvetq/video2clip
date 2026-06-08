@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Video2Clip — AI Reel Generator</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>"/>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
   :root {
@@ -28,20 +29,21 @@
     overflow-x: hidden;
   }
 
-  /* Animated background */
+  /* Richer animated background */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     background:
-      radial-gradient(ellipse 80% 50% at 20% 20%, rgba(108,99,255,0.08) 0%, transparent 60%),
-      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(255,101,132,0.06) 0%, transparent 60%),
-      radial-gradient(ellipse 50% 60% at 50% 50%, rgba(67,233,123,0.04) 0%, transparent 70%);
+      radial-gradient(ellipse 60% 50% at 15% 20%, rgba(108,99,255,0.13) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 75%, rgba(255,101,132,0.10) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 60% at 50% 50%, rgba(67,233,123,0.06) 0%, transparent 70%),
+      radial-gradient(ellipse 30% 30% at 80% 15%, rgba(108,99,255,0.07) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
   }
 
-  .container { max-width: 860px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+  .container { max-width: 960px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
 
   /* ── HEADER ── */
   header {
@@ -92,11 +94,15 @@
 
   h1 {
     font-family: 'Syne', sans-serif;
-    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-size: clamp(2.8rem, 5.5vw, 4.2rem);
     font-weight: 800;
     line-height: 1.05;
     letter-spacing: -0.03em;
     margin-bottom: 20px;
+    /* Prevent awkward 4-line break — let it flow naturally in 2–3 lines */
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
   }
   h1 em {
     font-style: normal;
@@ -165,10 +171,12 @@
     box-shadow: 0 0 0 3px var(--glow);
   }
 
+  /* Token row: constrained width so it doesn't span full card */
   .token-row {
     display: flex;
     gap: 10px;
     margin-bottom: 24px;
+    max-width: 400px;
   }
   .token-input {
     flex: 1;
@@ -448,14 +456,15 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
-    padding: 24px;
+    padding: 28px;
   }
+  /* Fix: how-num was nearly invisible — was var(--border) on dark bg */
   .how-num {
     font-family: 'Syne', sans-serif;
     font-size: 2rem;
     font-weight: 800;
-    color: var(--border);
-    margin-bottom: 12px;
+    color: rgba(108,99,255,0.35);
+    margin-bottom: 14px;
     line-height: 1;
   }
   .how-step h3 {
@@ -463,11 +472,12 @@
     font-weight: 700;
     font-size: 0.95rem;
     margin-bottom: 8px;
+    color: var(--text);
   }
   .how-step p {
     font-size: 0.82rem;
     color: var(--muted);
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   /* ── FOOTER ── */
@@ -486,6 +496,12 @@
   }
   .hero, .card { animation: fadeUp 0.6s ease both; }
   .card { animation-delay: 0.1s; }
+
+  @media (max-width: 640px) {
+    .input-group { flex-direction: column; }
+    .token-row { max-width: 100%; }
+    h1 { font-size: 2.4rem; }
+  }
 </style>
 </head>
 <body>
@@ -499,7 +515,7 @@
   <!-- HERO -->
   <section class="hero">
     <div class="hero-tag">Powered by Gemini + Whisper AI</div>
-    <h1>Turn any video into<br><em>viral reels</em> instantly</h1>
+    <h1>Turn any video into <em>viral reels</em> instantly</h1>
     <p class="hero-sub">Paste a YouTube or social media link. Our AI finds the best moments, cuts them into perfect 9:16 vertical clips, and adds English captions automatically.</p>
   </section>
 
@@ -549,7 +565,7 @@
         <div class="spinner"></div>
         Processing your video...
       </div>
-      <div class="steps">
+      <div class="steps" id="steps-list">
         <div class="step" id="step-1">
           <span class="step-icon">⬇️</span>
           Downloading video
@@ -621,8 +637,10 @@
   // ── CONFIG — update this URL when your ngrok URL changes ──
   const WEBHOOK_URL = 'https://sab.tail44bdea.ts.net/webhook/video-to-reels';
 
+  // Fetch timeout: 5 minutes
+  const FETCH_TIMEOUT_MS = 5 * 60 * 1000;
+
   let progressInterval = null;
-  let currentStep = 0;
 
   const steps = [
     { id: 'step-1', label: 'Downloading video',           duration: 8000  },
@@ -645,7 +663,7 @@
   function advanceStep(index) {
     steps.forEach((s, i) => {
       const el = document.getElementById(s.id);
-      if (i < index)       el.className = 'step done';
+      if (i < index)        el.className = 'step done';
       else if (i === index) el.className = 'step active';
       else                  el.className = 'step';
     });
@@ -654,7 +672,10 @@
   }
 
   function startProgressAnimation() {
-    currentStep = 0;
+    // Reset all steps first
+    steps.forEach(s => { document.getElementById(s.id).className = 'step'; });
+    document.getElementById('progress-bar').style.width = '0%';
+
     advanceStep(0);
     let idx = 0;
     function next() {
@@ -677,11 +698,10 @@
     const url   = document.getElementById('url-input').value.trim();
     const token = document.getElementById('token-input').value.trim();
 
-    if (!url) { showError('Please paste a video URL'); return; }
+    if (!url)  { showError('Please paste a video URL'); return; }
     if (!url.startsWith('http')) { showError('Please enter a valid URL starting with https://'); return; }
     if (!token) { showError('Please enter your access token'); return; }
 
-    // Show progress, hide form
     document.getElementById('form-section').style.display = 'none';
     document.getElementById('progress-section').style.display = 'block';
     document.getElementById('results-section').style.display = 'none';
@@ -689,47 +709,69 @@
 
     startProgressAnimation();
 
+    // Abort controller for timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     try {
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': 'true'
-        },
-        body: JSON.stringify({ url, auth_token: token })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, auth_token: token }),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
 
       const data = await response.json();
       stopProgress();
 
       if (data.status === 'error') {
-        showResults(null, data.error);
+        showResultsError(data.error);
       } else {
         showResults(data);
       }
 
     } catch(err) {
+      clearTimeout(timeoutId);
       stopProgress();
-      showResults(null, 'Could not reach the server. Make sure your PC is on and Tailscale is running.');
+      const msg = err.name === 'AbortError'
+        ? 'Request timed out after 5 minutes. The video may be too long — try a shorter one.'
+        : 'Could not reach the server. Make sure your PC is on and Tailscale is running.';
+      showResultsError(msg);
     }
   }
 
-  function showResults(data, error) {
+  function showResultsError(errorMsg) {
     document.getElementById('progress-section').style.display = 'none';
     document.getElementById('form-section').style.display = 'none';
     document.getElementById('results-section').style.display = 'block';
 
-    if (error || !data || !data.reels) {
-      document.getElementById('results-section').innerHTML = `
-        <div style="text-align:center;padding:40px 0">
-          <div style="font-size:2.5rem;margin-bottom:16px">😕</div>
-          <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:8px">Something went wrong</div>
-          <div style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">${error || 'Unknown error'}</div>
-          <button class="btn-new" onclick="resetForm()" style="max-width:300px;margin:0 auto">↩ Try again</button>
-        </div>
-      `;
-      return;
-    }
+    // Replace inner content but keep the outer #results-section element intact
+    // so resetForm() can always find it
+    const section = document.getElementById('results-section');
+    section.innerHTML = `
+      <div style="text-align:center;padding:40px 0">
+        <div style="font-size:2.5rem;margin-bottom:16px">😕</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:1.1rem;margin-bottom:8px">Something went wrong</div>
+        <div style="color:var(--muted);font-size:0.88rem;margin-bottom:24px">${errorMsg}</div>
+        <button class="btn-new" onclick="resetForm()" style="max-width:300px;margin:0 auto">↩ Try again</button>
+      </div>
+    `;
+  }
+
+  function showResults(data) {
+    document.getElementById('progress-section').style.display = 'none';
+    document.getElementById('form-section').style.display = 'none';
+
+    // Restore the results section to its original structure before populating
+    restoreResultsSection();
+
+    document.getElementById('results-section').style.display = 'block';
 
     const reels = data.reels || [];
     document.getElementById('results-count').textContent = reels.length + ' clips';
@@ -739,34 +781,45 @@
 
     if (reels.length === 0) {
       grid.innerHTML = '<div style="color:var(--muted);font-size:0.88rem;grid-column:1/-1">No reels were generated. Try a different video.</div>';
-    } else {
-      reels.forEach((reel, i) => {
-        const start = Math.round(reel.start || 0);
-        const end   = Math.round(reel.end   || 0);
-        const dur   = end - start;
-        const outputFile = reel.output_file || '';
-        const filename   = outputFile.split('/').pop() || `reel_${i+1}.mp4`;
-
-        // Convert container path to accessible URL
-        // Files are at /data/reels/ inside container → served via n8n static or direct
-        const downloadUrl = outputFile
-          ? WEBHOOK_URL.replace('/webhook/video-to-reels', '') + '/reels/' + filename
-          : '#';
-
-        grid.innerHTML += `
-          <div class="reel-card">
-            <div class="reel-thumb">🎬</div>
-            <div class="reel-info">
-              <div class="reel-title">${reel.title || 'Clip ' + (i+1)}</div>
-              <div class="reel-meta">${formatTime(start)} – ${formatTime(end)} · ${dur}s · ${reel.category || 'clip'}</div>
-              <a class="reel-download" href="${downloadUrl}" download="${filename}" target="_blank">
-                ⬇ Download
-              </a>
-            </div>
-          </div>
-        `;
-      });
+      return;
     }
+
+    reels.forEach((reel, i) => {
+      const start = Math.round(reel.start || 0);
+      const end   = Math.round(reel.end   || 0);
+      const dur   = end - start;
+      const outputFile = reel.output_file || '';
+      const filename   = outputFile.split('/').pop() || `reel_${i+1}.mp4`;
+
+      // Prefer a download_url returned by the server; fall back to constructed path
+      const downloadUrl = reel.download_url
+        || (outputFile ? WEBHOOK_URL.replace('/webhook/video-to-reels', '') + '/reels/' + filename : '#');
+
+      grid.innerHTML += `
+        <div class="reel-card">
+          <div class="reel-thumb">🎬</div>
+          <div class="reel-info">
+            <div class="reel-title">${reel.title || 'Clip ' + (i+1)}</div>
+            <div class="reel-meta">${formatTime(start)} – ${formatTime(end)} · ${dur}s · ${reel.category || 'clip'}</div>
+            <a class="reel-download" href="${downloadUrl}" download="${filename}" target="_blank">
+              ⬇ Download
+            </a>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  function restoreResultsSection() {
+    const section = document.getElementById('results-section');
+    section.innerHTML = `
+      <div class="results-header">
+        <div class="results-title">Your Reels are Ready 🎬</div>
+        <div class="results-count" id="results-count">0 clips</div>
+      </div>
+      <div class="reels-grid" id="reels-grid"></div>
+      <button class="btn-new" onclick="resetForm()">↩ Generate another video</button>
+    `;
   }
 
   function formatTime(sec) {
@@ -776,19 +829,19 @@
   }
 
   function resetForm() {
+    if (progressInterval) { clearTimeout(progressInterval); progressInterval = null; }
+
+    // Ensure results section has its original structure
+    restoreResultsSection();
+
     document.getElementById('url-input').value = '';
     hideError();
     document.getElementById('generate-btn').disabled = false;
     document.getElementById('form-section').style.display = 'block';
     document.getElementById('progress-section').style.display = 'none';
     document.getElementById('results-section').style.display = 'none';
-    // Restore results section HTML in case it was replaced
-    if (!document.getElementById('results-count')) {
-      location.reload();
-    }
   }
 
-  // Allow Enter key to submit
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('url-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') startGeneration();
